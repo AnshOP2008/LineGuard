@@ -1,0 +1,20 @@
+{
+  "balanced": {
+    "window": 20,
+    "slope_lag": 60,
+    "limit_factor": 2.5,
+    "release": 0.6,
+    "min_duration": 1,
+    "baseline_quantile": 0.999,
+    "name": "balanced"
+  },
+  "low_false_alarm": {
+    "window": 20,
+    "slope_lag": 30,
+    "limit_factor": 3.0,
+    "release": 0.6,
+    "min_duration": 1,
+    "baseline_quantile": 0.999,
+    "name": "low_false_alarm"
+  }
+}

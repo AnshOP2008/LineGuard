@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LineGuard</title>
+<meta name="description" content="LineGuard detects machine faults from multi-sensor data, tells sensor faults from machine faults, and shows what a fault means for the production line. Replay of real SKAB pump-rig data.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231d2529'/%3E%3Cpath d='M4 20h7l3-9 4 13 3-7h7' stroke='%23e6e9e7' stroke-width='2.6' fill='none' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#monitor" aria-label="LineGuard home">
+      <svg viewBox="0 0 34 22" aria-hidden="true"><path d="M1 14h8l3-10 5 16 3-8h13" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linejoin="round" stroke-linecap="round"/></svg>
+      <b>LineGuard</b>
+    </a>
+    <nav class="tabs" role="tablist" aria-label="Sections">
+      <button role="tab" data-page="monitor" aria-selected="true">Monitor</button>
+      <button role="tab" data-page="components" aria-selected="false">Components</button>
+      <button role="tab" data-page="impact" aria-selected="false">Line impact</button>
+      <button role="tab" data-page="results" aria-selected="false">Results</button>
+      <button role="tab" data-page="how" aria-selected="false">How it works</button>
+    </nav>
+    <div class="right">
+      <span class="muted small" id="mode-note">Replay of real sensor data</span>
+      <button class="theme-toggle" id="theme" aria-label="Switch colour theme">Theme</button>
+    </div>
+  </div>
+</header>
+
+<main>
+<!-- ================================================================ MONITOR -->
+<section class="page" id="page-monitor" data-page="monitor" style="padding-top:0">
+  <div class="wrap">
+    <div class="hero">
+      <div class="hero-grid">
+        <div>
+          <h1>Catch it at one machine, before it reaches the line.</h1>
+          <p class="lede">LineGuard watches the eight sensors on pump P-101, raises an alarm only when the evidence is outside anything seen while healthy, and says whether the machine or a sensor is at fault.</p>
+          <p class="small muted">Recorded data from the SKAB water-pump test rig, replayed second by second. Sensor tags <span data-info="tags"></span></p>
+        </div>
+        <svg class="schematic" id="schematic" viewBox="0 0 900 250" role="img" aria-label="Production line schematic with live sensor status"></svg>
+      </div>
+      <div class="controls">
+        <div class="scenario-list" id="scenarios" role="group" aria-label="Scenario"></div>
+        <div class="control-group">
+          <label for="run-select">Any of the 34 SKAB runs</label>
+          <select id="run-select"><option value="">Choose…</option></select>
+        </div>
+      </div>
+      <div class="controls" style="margin-top:0;border-top:0;padding-top:0">
+        <button class="btn primary" id="play">Play</button>
+        <div class="speed" role="group" aria-label="Playback speed" id="speed">
+          <button data-speed="5">5×</button><button data-speed="20" aria-pressed="true">20×</button><button data-speed="60">60×</button>
+        </div>
+        <div class="scrub">
+          <input type="range" id="scrub" min="0" max="1000" value="0" aria-label="Replay position">
+          <span class="clock" id="clock">00:00</span>
+        </div>
+      </div>
+      <p class="scenario-note" id="scenario-note"></p>
+    </div>
+
+    <div class="monitor">
+      <div class="panel traces" id="traces">
+        <div id="trace-rows"></div>
+        <div class="score-block">
+          <div class="score-row">
+            <div class="trace-label"><div class="name">Health score <span data-info="health"></span></div><div class="val" id="score-val">limit = 1.0</div></div>
+            <canvas id="score-canvas" aria-label="Health score over time"></canvas>
+          </div>
+          <div class="legend" id="legend">
+            <span style="--c:var(--baseline);outline:1px solid var(--rule)">Baseline learnt <span data-info="baseline"></span></span>
+            <span style="--c:var(--warn)">LineGuard alarm</span>
+            <span style="--c:var(--trace-dim)">Classic T²+Q alarm <span data-info="t2q"></span></span>
+            <span style="--c:repeating-linear-gradient(45deg,var(--ink-3) 0 2px,transparent 2px 5px)">Fault label (SKAB) <span data-info="truth"></span></span>
+          </div>
+        </div>
+      </div>
+      <aside class="panel alert-panel" id="alert-panel" aria-live="polite"></aside>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================ COMPONENTS -->
+<section class="page" id="page-components" data-page="components" hidden>
+  <div class="wrap">
+    <div class="page-head">
+      <h2>Which component, and how worn?</h2>
+      <p>On the UCI hydraulic test rig, LineGuard names the condition of the cooler, switching valve, pump and accumulator from one 60-second load cycle. Every prediction shown here comes from a model that never saw that block of cycles.</p>
+    </div>
+    <div class="kpis" id="hyd-kpis"></div>
+    <div class="grid-2">
+      <div class="panel pad">
+        <div class="section-h"><span>Condition board <span data-info="grade"></span></span> <small id="cycle-label"></small></div>
+        <div id="condition-board"></div>
+      </div>
+      <div class="panel pad">
+        <div class="section-h"><span>Example cycles <span data-info="cycle"></span></span> <small>held-out predictions <span data-info="blocked"></span></small></div>
+        <div class="cycle-list" id="cycle-list"></div>
+        <div class="cycle-plot" style="margin-top:12px">
+          <div class="section-h">Inside the cycle <small>pressure PS1 (bar) and flow FS1 (L/min)</small></div>
+          <canvas id="cycle-canvas"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================ IMPACT -->
+<section class="page" id="page-impact" data-page="impact" hidden>
+  <div class="wrap">
+    <div class="page-head">
+      <h2>What acting late costs the line</h2>
+      <p>A simulated shift on a four-stage line where pump P-101 feeds Machining. The alert arrives at the time you set. Compare stopping briefly to inspect with running until the machine fails. Every number on this page is simulated from the assumptions below, which you can change.</p>
+    </div>
+    <svg class="schematic" id="impact-schematic" viewBox="0 0 900 140" role="img" aria-label="Line schematic"></svg>
+    <div class="grid-2" style="margin-top:16px">
+      <div class="panel pad">
+        <div class="section-h">Assumptions <small>edit any value</small></div>
+        <form class="assumptions" id="assumptions"></form>
+        <p class="footnote">Simulated in your browser: 300 Monte-Carlo shifts per decision <span data-info="montecarlo"></span>. The repository has the same model in Python (SimPy). Buffers <span data-info="buffer"></span> hold 15 parts by default.</p>
+      </div>
+      <div>
+        <div class="sim-label">Simulated, not measured</div>
+        <div class="compare" id="compare"></div>
+        <div class="panel pad" style="margin-top:14px">
+          <div class="section-h">Value protected by inspecting at the alert</div>
+          <div class="protect" id="protect">–</div>
+          <div class="idle-bars" id="idle-bars"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================ RESULTS -->
+<section class="page" id="page-results" data-page="results" hidden>
+  <div class="wrap">
+    <div class="page-head">
+      <h2>Measured, on the public benchmark</h2>
+      <p>All 34 SKAB runs under SKAB's own protocol: the first 400 seconds of each run are the only training data, and the rest is the test. Settings were chosen by nested cross-validation <span data-info="nested"></span>, so no score here was tuned on its own test data.</p>
+    </div>
+    <div class="kpis" id="kpis"></div>
+    <div class="panel pad">
+      <div class="section-h">Anomaly detection on SKAB <small>pointwise metrics as defined by SKAB; event metrics as an operator sees them</small></div>
+      <div class="table-scroll"><table id="ladder"></table></div>
+      <p class="footnote" id="ladder-note"></p>
+    </div>
+    <div class="grid-2" style="margin-top:18px">
+      <div class="panel pad">
+        <div class="section-h">Sensor fault or machine fault? <small>verdict on every alarm</small></div>
+        <div class="table-scroll"><table id="verdicts"></table></div>
+        <p class="footnote" id="verdict-note"></p>
+      </div>
+      <div class="panel pad">
+        <div class="section-h">Published SKAB leaderboard <small>for reference</small></div>
+        <div class="table-scroll"><table id="published"></table></div>
+        <p class="footnote">From the SKAB repository README (outlier-detection problem). These models were scored with a 60-second window aligned to its first row.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================ HOW -->
+<section class="page" id="page-how" data-page="how" hidden>
+  <div class="wrap">
+    <div class="page-head">
+      <h2>From machine signals to an inspection priority</h2>
+      <p>Each step runs online on one-second data, uses only the past, and keeps its reasoning visible to the person who has to act on it.</p>
+    </div>
+    <ol class="steps">
+      <li><h3>Sense</h3><p>Eight signals on the pump: two vibration, motor current and voltage, loop pressure, flow, motor and fluid temperature. In the live service they arrive over MQTT <span data-info="mqtt"></span>.</p></li>
+      <li><h3>Learn the healthy baseline <span data-info="baseline"></span></h3><p>The first 400 seconds after start-up are the reference. Each signal is judged by what is physically meaningful: level for flow, pressure and vibration; rate of change for temperatures, which drift during warm-up.</p></li>
+      <li><h3>Detect <span data-info="health"></span></h3><p>A Watch state flags a signal drifting toward its limit before any alarm. Every feature gets a calibrated limit from the baseline. An alarm needs the evidence outside that limit, holds with hysteresis, and clears when the evidence returns. A data-quality check catches stuck and dead sensors.</p></li>
+      <li><h3>Diagnose <span data-info="verdict"></span></h3><p>A relationship model predicts each sensor from the others, and paired sensors check each other. The verdict is machine fault, sensor fault, or unconfirmed with a two-minute check to settle it. On the hydraulic rig, a second model names the component and its wear grade.</p></li>
+      <li><h3>Act <span data-info="workorder"></span></h3><p>Each alert becomes a prioritised work order with a checklist, tracked from Open to Closed. Closing it is checked against the data. A line simulation shows what waiting would cost downstream.</p></li>
+    </ol>
+    <div class="grid-2" style="margin-top:26px">
+      <div class="panel pad">
+        <div class="section-h">What is real and what is simulated</div>
+        <ul class="honesty" id="honesty">
+          <li><b>Real:</b> every signal on the Monitor page except the two injected scenarios is real SKAB data, replayed.</li>
+          <li><b>Real:</b> component diagnosis uses the real UCI hydraulic rig recordings.</li>
+          <li><b>Injected:</b> sensor faults are added to healthy data and marked wherever they appear, because SKAB has no labelled sensor faults.</li>
+          <li><b>Simulated:</b> the four-stage line and its costs. They show the decision, not a measured saving.</li>
+          <li><b>Limits:</b> one lab rig with short runs; component diagnosis is validated on a different rig than the live stream; no plant pilot yet.</li>
+          <li><b>Not claimed:</b> predictive maintenance and multi-sensor monitoring exist already. The contribution is the combination, measured against clear baselines.</li>
+        </ul>
+      </div>
+      <div class="panel pad">
+        <div class="section-h">Run it yourself</div>
+        <p class="small">The repository regenerates every number on this site:</p>
+        <pre class="small" style="background:var(--surface-2);padding:10px;border-radius:4px;overflow:auto">pip install -r requirements.txt
+python -m lineguard all      # download, evaluate, export
+python -m lineguard serve    # live API + this dashboard</pre>
+        <p class="small muted">Live mode streams sensor readings to the FastAPI service, which runs the same detector online and stores operator feedback in SQLite.</p>
+      </div>
+    </div>
+    <div class="panel pad" style="margin-top:18px">
+      <div class="section-h">Questions we expect</div>
+      <div class="faq">
+        <div><h3>It needs 400 seconds of healthy data after every start?</h3><p>Yes. That is SKAB's protocol, and it makes LineGuard work on a new machine with no history. In a plant the baseline would be stored per machine and operating point after commissioning, then reused.</p></div>
+        <div><h3>Why does it miss 3 of 34 faults when T²+Q catches all 34?</h3><p>T²+Q also raises 125 false alarms; an alarm that is always on catches everything. LineGuard trades three quiet faults for 14 times fewer false alarms. The low-false-alarm mode and the limit margin let a plant choose its own balance.</p></div>
+        <div><h3>Can it name the broken part on this pump?</h3><p>No. SKAB records no part labels, so on the pump LineGuard names the signals involved and a likely area. Part-level diagnosis is shown separately on a hydraulic rig that has part labels.</p></div>
+        <div><h3>Are the sensor faults real?</h3><p>No public dataset labels sensor failures, so they are injected into real healthy recordings and marked as injected everywhere. All machine faults are real.</p></div>
+        <div><h3>Is the cost figure real?</h3><p>No. The line and its costs are a simulation with assumptions you can edit. It shows the decision an alert supports, not a measured saving.</p></div>
+        <div><h3>Why not just use a deep neural network?</h3><p>We trained the leaderboard's best ones. With the published look-ahead removed they score lower and alarm about a minute later, and they cannot explain an alarm to a technician.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>LineGuard: open-source machine monitoring for small and mid-sized plants. MIT licence.</span>
+    <span>Data: SKAB (Katser &amp; Kozitsin, 2020) and the UCI condition monitoring of hydraulic systems dataset (Helwig et al., 2015).</span>
+  </div>
+</footer>
+<script src="app.js"></script>
+</body>
+</html>

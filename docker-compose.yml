@@ -1,0 +1,29 @@
+# One command: docker compose up
+#   dashboard + API  -> http://localhost:8000
+#   MQTT broker      -> localhost:1883
+#   publisher        -> replays SKAB run valve1/3 as a live pump over MQTT
+#   monitor          -> runs LineGuard online on the MQTT stream and prints alerts
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    command: mosquitto -c /mosquitto-no-auth.conf
+    ports: ["1883:1883"]
+  api:
+    build: .
+    ports: ["8000:8000"]
+    volumes: ["lineguard-data:/app/data", "lineguard-artifacts:/app/artifacts"]
+  monitor:
+    build: .
+    depends_on: [mosquitto, api]
+    environment: { MQTT_HOST: mosquitto }
+    volumes: ["lineguard-data:/app/data", "lineguard-artifacts:/app/artifacts"]
+    command: sh -c "python -m lineguard download && python -m service.mqtt_bridge monitor"
+  publisher:
+    build: .
+    depends_on: [monitor]
+    environment: { MQTT_HOST: mosquitto }
+    volumes: ["lineguard-data:/app/data"]
+    command: sh -c "python -m lineguard download && sleep 20 && python -m service.mqtt_bridge publish --run valve1/3 --speed 5"
+volumes:
+  lineguard-data:
+  lineguard-artifacts:

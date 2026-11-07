@@ -1,0 +1,12 @@
+# Core pipeline, evaluation and live service
+numpy>=1.26
+pandas>=2.1
+scikit-learn>=1.4
+lightgbm>=4.3
+scipy>=1.11
+simpy>=4.1
+requests>=2.31
+fastapi>=0.110
+uvicorn>=0.29
+pydantic>=2.6
+paho-mqtt>=2.0

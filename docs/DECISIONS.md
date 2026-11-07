@@ -1,0 +1,12 @@
+# Design decisions
+
+1. **SKAB protocol, not a custom split.** First 400 rows of each run = only training data, rest = test, scored with SKAB's binary metric (cross-checked against SKAB's own `core/metrics.py`). Makes our numbers directly comparable with the published leaderboard.
+2. **Nested leave-one-family-out tuning.** 288 settings; chosen on two experiment families, scored on the third. The shipped setting is the one all three folds agreed on.
+3. **Physics-aware features.** 80 % of naive false alarms occurred after the fault had cleared, because temperatures settle at a new level. Judging thermal signals by rate of change removed most of them.
+4. **Strict causality.** Rolling windows look back only; alarm confirmation and hysteresis are online state machines. `tests/test_core.py::test_scores_are_causal` enforces it. This exposed the look-ahead in SKAB's reference notebooks, which we report rather than exploit.
+5. **Data-quality check.** A statistical detector cannot see a frozen reading. Repeat/zero run-length limits were set at 2× the longest repeat in any healthy SKAB data (flow 42 s, pressure 18 s) and are tested never to trip on healthy data.
+6. **Three verdicts instead of a black-box classifier.** A gradient-boosted classifier labelled 75 % of real machine faults as sensor faults: at onset most SKAB valve faults move only the flow signal, exactly like a flow-meter offset. We replaced it with a transparent rule (corroboration → machine; instrument signature with calm related sensors → sensor; otherwise unconfirmed) and report the unconfirmed share honestly. Thresholds were set by engineering judgement, adjusted once on seed 0 and reported on a fresh seed.
+7. **Cross-signal relationship model.** Predicting each sensor from the others (LightGBM, trained on normal data only) did not beat the physics-aware detector for *detection* (275 false alarms per shift in an earlier draft), so it was not promoted there. It earns its place in *diagnosis*, showing what the other sensors expected.
+8. **Deep baselines kept as baselines.** Conv-AE and LSTM-AE re-implemented with SKAB's decision rule, 3 seeds, reported both as published and causal.
+9. **Static dashboard.** No framework or build step; loads instantly from any static host; the same page talks to the FastAPI service when served by it.
+10. **Simulation labelled everywhere.** The line model shows a decision, not a measured saving.
